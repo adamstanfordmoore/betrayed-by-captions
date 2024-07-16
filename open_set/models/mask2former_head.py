@@ -283,7 +283,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         for p in self.transformer_decoder.parameters():
             p.requires_grad = False
 
-    def get_targets(self, cls_scores_list, cls_emb_logits_list, mask_preds_list,
+    def _get_targets(self, cls_scores_list, cls_emb_logits_list, mask_preds_list,
                     gt_labels_list, gt_masks_list, img_metas):
         """Compute classification and mask targets for all images for a decoder
         layer.
@@ -530,14 +530,14 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         num_imgs = cls_scores.size(0)
         cls_scores_list = [cls_scores[i] for i in range(num_imgs)]
         if self.use_class_emb:
-            cls_emb_logits = self._get_cls_emb_logits(cls_emb_preds)
+            cls_emb_logits = self._get_cls_emb_logits_from_cls_emb_pred(cls_emb_preds)
             cls_emb_logits_list = [cls_emb_logits[i] for i in range(num_imgs)]
         else:
             cls_emb_logits_list = [None for i in range(num_imgs)]
         mask_preds_list = [mask_preds[i] for i in range(num_imgs)]
         
         (labels_list, label_weights_list, mask_targets_list, mask_weights_list, 
-        num_total_pos, _) = self.get_targets(cls_scores_list, cls_emb_logits_list, mask_preds_list,
+        num_total_pos, _) = self._get_targets(cls_scores_list, cls_emb_logits_list, mask_preds_list,
                                            gt_labels_list, gt_masks_list,
                                            img_metas)
 
@@ -665,9 +665,10 @@ class Mask2FormerHeadOpen(MaskFormerHead):
 
         return loss_cls, loss_cls_emb, loss_grounding, loss_caption_generation, loss_caption_align, loss_mask, loss_dice 
 
-    def _get_cls_emb_logits(self, cls_emb_preds: torch.Tensor) -> torch.Tensor:
+    def _get_cls_emb_logits_from_cls_emb_pred(self, cls_emb_preds: torch.Tensor) -> torch.Tensor:
         """Compute prediction logits for embedding predicion head. 
 
+        The output will be <cls_emb_preds, self.class_embs> / temperature.
         Args:
             cls_emb_preds: A tensor of (batch_size, num_queries, d_l) that stores class embedding prediction for a single decoder for all images.
             
@@ -983,7 +984,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
 
         # assign results
         if kwargs.get('gt_labels', None) is not None:
-            cls_emb_logits = self._get_cls_emb_logits(mask_cls_emb_results)
+            cls_emb_logits = self._get_cls_emb_logits_from_cls_emb_pred(mask_cls_emb_results)
             gt_masks = kwargs['gt_masks'][0][0].pad(img_metas[0]['pad_shape'][:2], pad_val=0).to_tensor(dtype=torch.long, device=cls_emb_logits.device)
             # (num_queries, )
             assigned_labels, label_weights, mask_targets, mask_weights, pos_inds, neg_inds = \

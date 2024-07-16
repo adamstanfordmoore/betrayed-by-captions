@@ -14,6 +14,7 @@ import torch
 import transformers
 from tqdm import tqdm
 from typing import Dict
+from torch import nn
 
 BERT_MODEL_BY_EMBEDDING_TYPES: Dict[str, str] = {
     'bert': 'bert-base-uncased',
@@ -33,18 +34,20 @@ def _generate_class_embeddings_from_concepts(concept_file_path: Path) -> None:
     embedding_type = 'pubmed-bert'
     bert_embedder = BertEmbeddings(
         bert_model=transformers.AutoModel.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[embedding_type]).eval(),
-        normalize_word_embeddings=True,
+        normalize_word_embeddings=False, # Perform pooling over subwords first before normalization!
     )        
     tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[embedding_type])
     all_class_embeddings: torch.Tensor = torch.zeros((len(concepts), _EMBEDDING_DIM), dtype=torch.float32)
+    layernorm = nn.LayerNorm(normalized_shape=_EMBEDDING_DIM, eps=1e-9)
     with torch.no_grad():
         for idx, concept in tqdm(enumerate(concepts)):
             token_ids = tokenizer(concept, return_tensors="pt", truncation=False, add_special_tokens=False, padding=False)
             embs = bert_embedder.calculate_word_embeddings(token_ids['input_ids'])
-            all_class_embeddings[idx] = _pooling_over_token_embeddings(
+            embs = _pooling_over_token_embeddings(
                 outputs = embs,
                 mask=token_ids['attention_mask'],
             )
+            all_class_embeddings[idx] = layernorm(embs)
 
     json_obj = json.dumps([{"id": idx + 1, "name": concept, "emb": [x.item() for x in class_embd]} for idx, (concept, class_embd) in enumerate(zip(concepts, all_class_embeddings))] )
     with open(_OUTPUT_CLASS_EMBEDDING_FILE, "w") as out_file:
