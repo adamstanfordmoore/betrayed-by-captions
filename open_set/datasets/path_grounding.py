@@ -77,5 +77,3 @@ class PathGroundOpen(CocoDatasetOpen):
             nouns_parser=nouns_parser,
         )
         
-        self.max_tokens = 50
-        

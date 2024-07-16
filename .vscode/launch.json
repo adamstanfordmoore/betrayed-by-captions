@@ -8,6 +8,8 @@
 
 
 
+
+
         {
             "name": "generate-class-embd-from-categories",
             "type": "debugpy",
@@ -94,6 +96,27 @@
                 "configs/instance/path_ground_pretrain.py",
             ],
             "justMyCode": false,
+        },
+        {
+            "name": "pretrain-path-ground-instance-seg-multi-gpu",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "torch.distributed.launch",
+            "console": "integratedTerminal",
+            "args": [
+                "--nnodes",
+                "1",
+                "--node_rank",
+                "0",
+                "--master_addr",
+                "127.0.0.1",
+                "--nproc_per_node",
+                "8",
+                "--master_port",
+                "29500",
+                "./tools/train.py",
+                "configs/instance/path_ground_pretrain.py",
+            ],
         },
         {
             "name": "pretrain-panoptic-seg-single-gpu",
