@@ -20,7 +20,7 @@ from mmdet.datasets.coco import CocoDataset
 import transformers
 
 from .utils.parser import LVISParser
-
+from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 
 try:
     import panopticapi
@@ -311,7 +311,7 @@ class CocoPanopticDatasetOpen(CocoDataset):
         if self.caption_ann_file is not None:
             self.coco_caption = COCO(self.caption_ann_file)
             self.max_tokens = 35
-            self.tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+            self.tokenizer = transformers.BertTokenizer.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[emb_type])
         self.parser = LVISParser()
 
     def load_annotations(self, ann_file):

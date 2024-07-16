@@ -28,6 +28,7 @@ from mmdet.datasets.builder import DATASETS
 from mmdet.datasets.custom import CustomDataset
 
 from .utils.parser import LVISParser, NLTKParser, ImageNet21KParser, MedLVISParser
+from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 
 
 @DATASETS.register_module()
@@ -115,7 +116,10 @@ class CocoDatasetOpen(CustomDataset):
         if self.caption_ann_file is not None:
             self.coco_caption = COCO(self.caption_ann_file)
             self.max_tokens = 35
-            self.tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+        
+        if emb_type in ('bert', 'pubmed-bert'):
+            self.tokenizer = transformers.BertTokenizer.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[emb_type])
+            
         if nouns_parser == 'lvis':
             self.parser = LVISParser()
         if nouns_parser == 'med_lvis':

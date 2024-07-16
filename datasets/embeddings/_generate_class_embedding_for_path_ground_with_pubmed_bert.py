@@ -12,15 +12,16 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import torch
 from tqdm import tqdm
-
+from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 _OUTPUT_CLASS_EMBEDDING_FILE = "datasets/embeddings/quilt_class_with_pubmed_bert_emb.json"
 _EMBEDDING_DIM = 768
 def _generate_class_embeddings_from_concepts(concept_file_path: Path) -> None:
     with open(str(concept_file_path), "r") as file:
         concepts = json.load(file)
     
-    tokenizer = AutoTokenizer.from_pretrained("neuml/pubmedbert-base-embeddings")
-    model = AutoModel.from_pretrained("neuml/pubmedbert-base-embeddings")
+    embedding_type = 'pubmed-bert'
+    tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[embedding_type])
+    model = AutoModel.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[embedding_type])
     all_class_embeddings: torch.Tensor = torch.zeros((len(concepts), _EMBEDDING_DIM), dtype=torch.float32)
     with torch.no_grad():
         for idx, concept in tqdm(enumerate(concepts)):

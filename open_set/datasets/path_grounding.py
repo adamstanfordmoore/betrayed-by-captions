@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from mmdet.datasets.api_wrappers import COCO
 from .coco_open import CocoDatasetOpen
 import transformers
+from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 
 @DATASETS.register_module()
 class PathGroundOpen(CocoDatasetOpen):
@@ -76,7 +77,5 @@ class PathGroundOpen(CocoDatasetOpen):
             nouns_parser=nouns_parser,
         )
         
-        if emb_type == 'pubmed-bert':
-            # https://huggingface.co/lighteternal/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext-finetuned-mnli
-            self.max_tokens = 50
-            self.tokenizer = transformers.AutoTokenizer.from_pretrained("lighteternal/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext-finetuned-mnli")
+        self.max_tokens = 50
+        

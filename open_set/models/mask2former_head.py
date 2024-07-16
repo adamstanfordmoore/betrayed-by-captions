@@ -28,6 +28,7 @@ from mmdet.models.dense_heads.maskformer_head import MaskFormerHead
 
 from ..utils.eval.inference import beam_search, get_ids_embedding
 from .utils.bert_embeddings import BertEmbeddings
+from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 
 BOS_TOKEN = 101
 EOS_TOKEN = 102
@@ -178,7 +179,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         self.kwargs = kwargs
         self.class_agnostic = kwargs.get('class_agnostic', False)
         self.use_class_emb = kwargs.get('use_class_emb', False)
-        self.use_caption = kwargs.get('use_caption', False)
+        self._use_caption = kwargs.get('use_caption', False)
         self.use_caption_generation = kwargs.get('use_caption_generation', False)
         self.use_caption_align = kwargs.get('use_caption_align', False)
         self.known_file = kwargs.get('known_file', None)
@@ -204,7 +205,8 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         if self.use_class_emb:
             class_to_emb_file = kwargs['class_to_emb_file']
             class_to_emb = mmcv.load(class_to_emb_file)
-            class_embs = torch.zeros((self.num_classes + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
+            class_embedding_dim = len(class_to_emb[0]['emb'])
+            class_embs = torch.zeros((self.num_classes + 1, class_embedding_dim), dtype=torch.float)
             i = 0
             # Copy the class embeddings from BERT to the head.
             for class_dict in class_to_emb:
@@ -218,15 +220,15 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                 i += 1
             # automatically to cuda
             self.register_buffer('class_embs', class_embs)
-            self.v2l_transform = nn.Linear(self.feat_channels, class_embs.shape[1])
+            self._v2l_transform = nn.Linear(self.feat_channels, class_embedding_dim)
         self.bert_embeddings = self.clip = None
-        if self.use_caption:
+        if self._use_caption:
             self.caption_emb_type = kwargs.get('caption_emb_type', 'clip')
-            self.build_text_encoders(self.caption_emb_type)
+            self._build_text_encoders(self.caption_emb_type)
         if self.use_caption_generation:
             self.caption_gen_emb_type = kwargs.get('caption_gen_emb_type', 'bert')
             self.caption_generator = build_head(self.caption_generator_cfg)
-            self.build_text_encoders(self.caption_gen_emb_type)
+            self._build_text_encoders(self.caption_gen_emb_type)
         if self.learnable_temperature:
             self.softmax_temperature = nn.Parameter(torch.tensor([self.softmax_temperature]), requires_grad=True)
 
@@ -242,18 +244,24 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                 nn.init.xavier_normal_(p)
 
         if self.freeze_v2l:
-            for p in self.v2l_transform.parameters():
+            for p in self._v2l_transform.parameters():
                 p.requires_grad = False
         
         if self.freeze_pretrained:
             self.freeze_params()
 
-    def build_text_encoders(self, emb_type):
-        if emb_type == 'bert' and self.bert_embeddings is None:
-            bert_model = transformers.BertModel.from_pretrained('bert-base-uncased').eval()
-            self.bert_embeddings = BertEmbeddings(bert_model)
+    def _build_text_encoders(self, emb_type: str) -> None:
+        """Builds a text encoder.
+        
+        Args:
+            emb_type: The type of embedding to use.
+        """
+        if emb_type in ('pubmed-bert', 'bert') and self.bert_embeddings is None:
+            self.bert_embeddings = BertEmbeddings(bert_model=transformers.AutoModel.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[emb_type]).eval())
             for param in self.bert_embeddings.parameters():
                 param.requires_grad = False
+                
+                
         if emb_type == 'clip' and self.clip is None:
             # clip_model, _ = clip.load('ViT-B/32')
             clip_model, _ = clip.load('RN50')
@@ -564,7 +572,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
 
         # caption grounding loss
         loss_grounding = loss_cls.new_tensor(0.0)
-        if self.use_caption:
+        if self._use_caption:
             all_gt_caption_nouns_embs, all_gt_caption_nouns_mask, all_cls_emb_preds = \
                 self.gather_captions_and_preds(gt_caption_nouns_embs_list, gt_caption_nouns_mask_list, cls_emb_preds)
             loss_grounding = self.loss_grounding(
@@ -704,13 +712,17 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             all_cls_emb_preds = cls_emb_preds
             return all_gt_caption_embs, all_gt_caption_mask, all_cls_emb_preds
 
-    def extract_word_embeddings(self, ids_list, mask_list, emb_type='bert'):
-        """extract caption words' embeddings and masks
+    def _extract_word_embeddings(self, ids_list: List[torch.Tensor], mask_list: List[torch.Tensor], emb_type: str='bert'):
+        """Extract caption words' embeddings and masks
+        
+        Args:
+            ids_list: A list of token ids for all captions in the minibatch. One item of the list is for 1 sample.
+            mask_list: A list of token masks for all captions in the minibatch. One item of the list is for 1 sample.
         """
 
         embs_list = []
         valid_mask_list = []
-        if emb_type == 'bert':
+        if emb_type in ('bert', 'pubmed-bert'):
             for i, ids in enumerate(ids_list):
                 embs = self.bert_embeddings.word_embeddings(ids)
                 if self.text_emb_norm:
@@ -760,7 +772,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         # shape (num_queries, batch_size, d_l)
         cls_emb_pred = cls_pred
         if self.use_class_emb:
-            cls_emb_pred = self.v2l_transform(decoder_out)
+            cls_emb_pred = self._v2l_transform(decoder_out)
             # normalization the embedding prediction
             if self.pred_emb_norm:
                 cls_emb_pred = cls_emb_pred / cls_emb_pred.norm(dim=-1, keepdim=True)
@@ -928,10 +940,10 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         gt_caption_nouns_embs = None
         if self.use_caption_generation:
             gt_caption_embs, gt_caption_mask = \
-                self.extract_word_embeddings(gt_caption_ids, gt_caption_mask, self.caption_gen_emb_type)
-        if self.use_caption:
+                self._extract_word_embeddings(gt_caption_ids, gt_caption_mask, self.caption_gen_emb_type)
+        if self._use_caption:
             gt_caption_nouns_embs, gt_caption_nouns_mask = \
-                self.extract_word_embeddings(gt_caption_nouns_ids, gt_caption_nouns_mask, self.caption_emb_type)
+                self._extract_word_embeddings(gt_caption_nouns_ids, gt_caption_nouns_mask, self.caption_emb_type)
 
         # loss
         losses = self.loss(all_cls_scores, all_cls_emb_preds, all_mask_preds,
