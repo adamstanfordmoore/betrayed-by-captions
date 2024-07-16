@@ -402,12 +402,12 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         return (labels, label_weights, mask_targets, mask_weights, pos_inds,
                 neg_inds)
 
-    @force_fp32(apply_to=('all_cls_scores', 'all_mask_preds'))
+    @force_fp32(apply_to=('all_layer_cls_scores', 'all_layer_mask_preds'))
     def loss(
         self, 
-        all_cls_scores: List[torch.Tensor], 
+        all_layer_cls_scores: List[torch.Tensor], 
         all_cls_emb_preds: List[torch.Tensor], 
-        all_mask_preds: List[torch.Tensor], 
+        all_layer_mask_preds: List[torch.Tensor], 
         gt_labels_list: List[Optional[torch.Tensor]], 
         gt_masks_list: List[Optional[torch.Tensor]], 
         gt_caption_ids_list: List[torch.Tensor],
@@ -421,14 +421,14 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         """Loss function.
 
         Args:
-            all_cls_scores: Classification scores for all decoder
+            all_layer_cls_scores: Classification scores for all decoder
                 layers. Each is a tensor with shape (batch_size, num_queries,
                 cls_out_channels). Note `cls_out_channels` should includes
                 background.
             all_cls_emb_preds: Embedding prediction for all decoder
                 layers. Each is a tensor with shape (batch_size, num_queries, d_l).
                 d_l is the dimension of embeddings.
-            all_mask_preds: Mask scores for all decoder layers with
+            all_layer_mask_preds: Mask scores for all decoder layers with
                 shape (num_decoder, batch_size, num_queries, h, w).
             gt_labels_list: Ground truth class indices for each
                 image with shape (n, ). n is the sum of number of stuff type
@@ -445,7 +445,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        num_dec_layers = len(all_cls_scores)
+        num_dec_layers = len(all_layer_cls_scores)
         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
         all_gt_masks_list = [gt_masks_list for _ in range(num_dec_layers)]
         all_gt_caption_ids_list = [gt_caption_ids_list for _ in range(num_dec_layers)]
@@ -457,7 +457,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
 
         losses_cls, losses_cls_emb, losses_grounding, losses_caption_generation, losses_caption_align, losses_mask, losses_dice = multi_apply(
-            self.loss_single, all_cls_scores, all_cls_emb_preds, all_mask_preds,
+            self.loss_single, all_layer_cls_scores, all_cls_emb_preds, all_layer_mask_preds,
             all_gt_labels_list, all_gt_masks_list, all_gt_caption_ids_list,
             all_gt_caption_embs_list, all_gt_caption_mask_list,
             all_gt_caption_nouns_ids_list, all_gt_caption_nouns_embs_list, all_gt_caption_nouns_mask_list, img_metas_list)
@@ -715,12 +715,16 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             all_cls_emb_preds = cls_emb_preds
             return all_gt_caption_embs, all_gt_caption_mask, all_cls_emb_preds
 
-    def _extract_word_embeddings(self, ids_list: List[torch.Tensor], mask_list: List[torch.Tensor], emb_type: str='bert'):
+    def _extract_word_embeddings(self, ids_list: List[torch.Tensor], mask_list: List[torch.Tensor], emb_type: str='bert') -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
         """Extract caption words' embeddings and masks
         
         Args:
-            ids_list: A list of token ids for all captions in the minibatch. One item of the list is for 1 sample.
-            mask_list: A list of token masks for all captions in the minibatch. One item of the list is for 1 sample.
+            ids_list: A list of token ids for all captions in the minibatch. Each item of the list is for 1 sample of shapes (N_tokens,).
+            mask_list: A list of token masks for all captions in the minibatch. One item of the list is for 1 sample of shapes (N_tokens,).
+        
+        Returns:
+            A list of token embeddings, one item for 1 sample of shape (N_token, Emb_dim).
+            A list of token makes, one item for 1 sample of shape (N_token,).
         """
 
         embs_list = []
@@ -886,7 +890,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                       img_metas: List[Dict],
                       gt_bboxes: List[torch.Tensor],
                       gt_labels: List[torch.Tensor],
-                      gt_masks,
+                      gt_masks: List[torch.Tensor],
                       gt_semantic_seg,
                       gt_caption_ids,
                       gt_caption_mask,
@@ -904,8 +908,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                 the image, shape (num_gts, 4). Not used here.
             gt_labels: Each element is ground truth labels of
                 each box, shape (num_gts,).
-            gt_masks (list[BitmapMasks]): Each element is masks of instances
-                of a image, shape (num_gts, h, w).
+            gt_masks: A list of instance masks of shape (num_gts, h, w).
             gt_semantic_seg (list[tensor] | None): Each element is the ground
                 truth of semantic segmentation with the shape (N, H, W).
                 [0, num_thing_class - 1] means things,
@@ -930,7 +933,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         assert gt_bboxes_ignore is None
 
         # forward
-        all_cls_scores, all_cls_emb_preds, all_mask_preds = self(feats, img_metas)
+        all_layers_cls_scores, all_layers_cls_emb_preds, all_layers_mask_preds = self(feats, img_metas)
 
         # preprocess ground truth
         gt_labels, gt_masks = self.preprocess_gt(gt_labels, gt_masks,
@@ -947,7 +950,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                 self._extract_word_embeddings(gt_caption_nouns_ids, gt_caption_nouns_mask, self.caption_emb_type)
 
         # loss
-        losses = self.loss(all_cls_scores, all_cls_emb_preds, all_mask_preds,
+        losses = self.loss(all_layers_cls_scores, all_layers_cls_emb_preds, all_layers_mask_preds,
                            gt_labels, gt_masks, gt_caption_ids, gt_caption_embs, gt_caption_mask,
                            gt_caption_nouns_ids, gt_caption_nouns_embs, gt_caption_nouns_mask, img_metas)
 
@@ -972,10 +975,10 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             - mask_pred_results (Tensor): Mask logits, shape \
                 (batch_size, num_queries, h, w).
         """
-        all_cls_scores, all_cls_emb_preds, all_mask_preds = self(feats, img_metas)
-        mask_cls_results = all_cls_scores[-1]
+        all_layer_cls_scores, all_cls_emb_preds, all_layer_mask_preds = self(feats, img_metas)
+        mask_cls_results = all_layer_cls_scores[-1]
         mask_cls_emb_results = all_cls_emb_preds[-1]
-        mask_pred_results = all_mask_preds[-1]
+        mask_pred_results = all_layer_mask_preds[-1]
         assigned_labels = mask_cls_results
 
         # assign results
