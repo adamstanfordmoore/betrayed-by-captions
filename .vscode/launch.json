@@ -4,14 +4,15 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
+
+
 
 
         {
             "name": "generate-class-embd-from-categories",
             "type": "debugpy",
             "request": "launch",
-            "program": "/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/embeddings/_generate_class_embedding_for_path_ground_with_pubmed_bert.py",
+            "program": "/jupyter-users-home/tan-2enguyen/betrayed-by-captions/open_set/models/utils/_generate_class_embedding_for_path_ground_with_pubmed_bert.py",
             "console": "integratedTerminal",
             "justMyCode": false,
         },

@@ -228,7 +228,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         if self.use_caption_generation:
             self.caption_gen_emb_type = kwargs.get('caption_gen_emb_type', 'bert')
             self.caption_generator = build_head(self.caption_generator_cfg)
-            self._build_text_encoders(self.caption_gen_emb_type)
+            self._build_text_encoders(self.caption_gen_emb_type, normalize_word_embeddings=self.text_emb_norm)
         if self.learnable_temperature:
             self.softmax_temperature = nn.Parameter(torch.tensor([self.softmax_temperature]), requires_grad=True)
 
@@ -250,14 +250,17 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         if self.freeze_pretrained:
             self.freeze_params()
 
-    def _build_text_encoders(self, emb_type: str) -> None:
+    def _build_text_encoders(self, emb_type: str, normalize_word_embeddings: bool=True) -> None:
         """Builds a text encoder.
         
         Args:
             emb_type: The type of embedding to use.
         """
         if emb_type in ('pubmed-bert', 'bert') and self.bert_embeddings is None:
-            self.bert_embeddings = BertEmbeddings(bert_model=transformers.AutoModel.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[emb_type]).eval())
+            self.bert_embeddings = BertEmbeddings(
+                bert_model=transformers.AutoModel.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[emb_type]).eval(),
+                normalize_word_embeddings=normalize_word_embeddings,
+            )
             for param in self.bert_embeddings.parameters():
                 param.requires_grad = False
                 
@@ -724,9 +727,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         valid_mask_list = []
         if emb_type in ('bert', 'pubmed-bert'):
             for i, ids in enumerate(ids_list):
-                embs = self.bert_embeddings.word_embeddings(ids)
-                if self.text_emb_norm:
-                    embs = self.bert_embeddings.LayerNorm(embs)
+                embs = self.bert_embeddings.calculate_word_embeddings(ids)
                 embs_list.append(embs)
                 valid_mask_list.append(mask_list[i])
         elif emb_type == 'clip':
