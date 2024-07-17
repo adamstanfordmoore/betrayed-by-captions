@@ -41,7 +41,7 @@ We conduct extensive experiments on the COCO dataset with two settings: Open Voc
    cd betrayed-by-captions
    ```
 
-2. Create Conda Environment and Install Dependencies
+2. [SKIP for PATHAI nodes as different GPUs] Create Conda Environment and Install Dependencies
 
    ```bash
     conda create -n cgg python=3.8
@@ -83,11 +83,11 @@ We conduct extensive experiments on the COCO dataset with two settings: Open Voc
   conda create --name betray python=3.10 -y
   conda activate betray
   pip install -r requirements.txt
+  pip install spacy
   python3 -m spacy download en_core_web_sm
   pip install yapf==0.40.1  # Avoid https://github.com/open-mmlab/mmdetection/issues/10962 
 
   conda install cudatoolkit=11.7 -c pytorch
-  pip install https://download.pytorch.org/whl/cu117/torch-2.0.1%2Bcu117-cp310-cp310-linux_x86_64.whl
   pip install https://download.pytorch.org/whl/cu117/torch-2.0.1%2Bcu117-cp310-cp310-linux_x86_64.whl
   pip install https://download.pytorch.org/whl/cu117/torchvision-0.15.2%2Bcu117-cp310-cp310-linux_x86_64.whl#sha256=1ee57f2bee878ad8574ea559bb7172c1cfaad168634fa738479e1fe3bdd7eaca
   conda install -c conda-forge cudatoolkit-dev
