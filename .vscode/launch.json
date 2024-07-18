@@ -4,7 +4,16 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-       {
+        
+        {
+            "name": "inference",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/notebooks/inference.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+        },
+        {
             "name": "generate-class-embd-from-categories",
             "type": "debugpy",
             "request": "launch",
