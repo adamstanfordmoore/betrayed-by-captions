@@ -231,40 +231,65 @@ test_pipeline = [
             dict(type='Collect', keys=['img']),
         ])
 ]
+
 dataset_type = 'PathGroundOpen'
 data_root = '/jupyter-users-home/tan-2enguyen/datasets/pathology/anno_caption_merged/'
 
+# dataset_type = 'CocoDatasetOpen'
+# data_root = '/jupyter-users-home/tan-2enguyen/datasets/detectron2/coco/'
+
 data = dict(
     _delete_=True,
-    samples_per_gpu=1,
-    workers_per_gpu=1,
+    samples_per_gpu=3,
+    workers_per_gpu=3,
     train=dict(
         type=dataset_type,
+        
+        # ann_file=data_root + 'annotations/instances_train2017.json',
+        # caption_ann_file=data_root + 'annotations/captions_train2017.json',
+        # img_prefix=data_root + 'train2017/',
+        # pipeline=train_pipeline,
+        
         ann_file=data_root + 'annotations/train_instances.json',
         caption_ann_file=data_root + 'annotations/train_captions.json',
         img_prefix=data_root + 'images/',
-        filter_empty_gt=False,
         transform_pipeline=train_pipeline,
+        
+        filter_empty_gt=False,
         known_file=known_file,
         unknown_file=unknown_file,
         class_agnostic=False,
-        emb_type='pubmed-bert'),
+        emb_type=embeding_type),
     val=dict(
         type=dataset_type,
+        
+        # ann_file=data_root + 'annotations/instances_val2017.json',
+        # caption_ann_file=data_root + 'annotations/captions_val2017.json',
+        # img_prefix=data_root + 'val2017/',
+        # pipeline=test_pipeline,
+        
         ann_file=data_root + 'annotations/val_instances.json',
         caption_ann_file=data_root + 'annotations/val_captions.json',
         img_prefix=data_root + 'images/',
         transform_pipeline=test_pipeline,
+        
         known_file=known_file,
         unknown_file=unknown_file,
         class_agnostic=False,
         eval_types=['base_results'],),
     test=dict(
         type=dataset_type,
+        
+        # ann_file=data_root + 'annotations/instances_val2017.json',
+        # caption_ann_file=data_root + 'annotations/captions_val2017.json',
+        # img_prefix=data_root + 'val2017/',
+        # pipeline=test_pipeline,
+        
         ann_file=data_root + 'annotations/val_instances.json',
         caption_ann_file=data_root + 'annotations/val_captions.json',
         img_prefix=data_root + 'images/',
         transform_pipeline=test_pipeline,
+        
         known_file=known_file,
         unknown_file=unknown_file,
         class_agnostic=False,
