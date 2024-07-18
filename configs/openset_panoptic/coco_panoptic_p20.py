@@ -11,7 +11,8 @@ num_known_classes = num_classes - num_unknown_classes
 
 unknown_file = f'./datasets/unknown/unknown_p20.txt'
 class_to_emb_file = f'./datasets/embeddings/coco_panoptic_class_with_bert_emb.json'
-init_path = f'./pretrained/p20_ag_pretrain.pth'
+init_path = f'./pretrained/panoptic_p20_ag_pretrain.pth'
+
 
 model = dict(
     type='Mask2FormerOpen',
