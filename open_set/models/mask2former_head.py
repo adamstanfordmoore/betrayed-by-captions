@@ -6,10 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import transformers
-from typing import Dict, List
 import clip
 
 import mmcv
@@ -29,6 +28,7 @@ from mmdet.models.dense_heads.maskformer_head import MaskFormerHead
 from ..utils.eval.inference import beam_search, get_ids_embedding
 from .utils.bert_embeddings import BertEmbeddings
 from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
+
 
 BOS_TOKEN = 101
 EOS_TOKEN = 102
@@ -162,16 +162,12 @@ class Mask2FormerHeadOpen(MaskFormerHead):
 
         self.class_weight = loss_cls.class_weight
         self._loss_cls = build_loss(loss_cls)
-        
         if loss_cls_emb is not None:
             self._loss_cls_emb = build_loss(loss_cls_emb)
-            
         if loss_grounding is not None:
             self._loss_grounding = build_loss(loss_grounding)
-            
         if loss_caption_generation is not None:
-            self.loss_caption_generation = build_loss(loss_caption_generation)
-            
+            self._loss_caption_generation = build_loss(loss_caption_generation)
         if loss_caption_align is not None:
             self.loss_caption_align = build_loss(loss_caption_align)
         self.loss_mask = build_loss(loss_mask)
@@ -224,7 +220,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                 i += 1
             # automatically to cuda
             self.register_buffer('class_embs', class_embs)
-            self._v2l_transform = nn.Linear(self.feat_channels, class_embedding_dim)
+            self.v2l_transform = nn.Linear(self.feat_channels, class_embedding_dim)
         self.bert_embeddings = self.clip = None
         if self._use_caption:
             self.caption_emb_type = kwargs.get('caption_emb_type', 'clip')
@@ -268,7 +264,6 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             for param in self.bert_embeddings.parameters():
                 param.requires_grad = False
                 
-                
         if emb_type == 'clip' and self.clip is None:
             # clip_model, _ = clip.load('ViT-B/32')
             clip_model, _ = clip.load('RN50')
@@ -288,7 +283,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             p.requires_grad = False
 
     def _get_targets_all_images_single_layer(self, cls_scores_list: List[torch.Tensor], cls_emb_logits_list: List[torch.Tensor], mask_preds_list: List[torch.Tensor],
-                    gt_labels_list: List[torch.Tensor], gt_masks_list: List[torch.Tensor], img_metas: List[Dict]) -> Tuple[Union[torch.Tensor, int]]:
+                gt_labels_list: List[torch.Tensor], gt_masks_list: List[torch.Tensor], img_metas: List[Dict]) -> Tuple[Union[torch.Tensor, int]]:
         """Computes classification and mask targets for all images for a decoder layer.
 
         Args:
@@ -318,9 +313,8 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             sum((inds.numel() for inds in neg_inds_list)),
         )
 
-
     def _get_target_single_image(self, cls_score: torch.Tensor, cls_emb_logit: torch.Tensor, mask_pred: torch.Tensor,
-                           gt_labels: torch.Tensor, gt_masks: torch.Tensor, img_metas: Dict) -> Tuple[torch.Tensor]:
+                        gt_labels: torch.Tensor, gt_masks: torch.Tensor, img_metas: Dict) -> Tuple[torch.Tensor]:
         """Compute classification and mask targets for one image.
 
         Args:
@@ -450,7 +444,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             loss_dict[f'd{decoder_layer_idx}.loss_mask'] = loss_mask_i * self.loss_aux_weight
             loss_dict[f'd{decoder_layer_idx}.loss_dice'] = loss_dice_i * self.loss_aux_weight
         return loss_dict
-
+    
     def loss_single(
         self, 
         cls_scores: torch.Tensor, 
@@ -535,7 +529,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                         if self.gen_replace_obj_nouns:
                             gt_caption_ids[j] = 4874    # 'object'
             gt_caption_ids = torch.stack(gt_caption_ids_list, dim=0)[:, 1:].flatten(0, 1)  # (batch_size * (max_tokens - 1))
-            loss_caption_generation = self.loss_caption_generation(caption_logits, gt_caption_ids)
+            loss_caption_generation = self._loss_caption_generation(caption_logits, gt_caption_ids)
             
         loss_caption_align = loss_cls.new_tensor(0.0)
         if self.use_caption_align:
@@ -578,8 +572,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             cls_emb_preds: A tensor of (batch_size, num_queries, d_l) that stores class embedding prediction for a single decoder for all images.
             
         Returns:
-            cls_emb_logits: Embedding predicion scores.
-                (batch_size, num_queries, self.num_classes + 1).
+            cls_emb_logits: Embedding predicion scores with shape of (batch_size, num_queries, self.num_classes + 1).
         """
         # (batch_size, num_queries, d_l) * (d_l, self.num_classes) -> (batch_size, num_queries, self.num_classes)
         return torch.matmul(cls_emb_preds, self.class_embs.t()) / self.softmax_temperature
@@ -667,7 +660,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
     
         cls_emb_pred = cls_pred   # shape (num_queries, batch_size, d_l)
         if self.use_class_emb:
-            cls_emb_pred = self._v2l_transform(decoder_out)
+            cls_emb_pred = self.v2l_transform(decoder_out)
             if self.pred_emb_norm:
                 cls_emb_pred = cls_emb_pred / cls_emb_pred.norm(dim=-1, keepdim=True)
                 
@@ -741,20 +734,20 @@ class Mask2FormerHeadOpen(MaskFormerHead):
             mask_pred_list.append(mask_pred)
 
         return cls_pred_list, cls_emb_pred_list, mask_pred_list
-
+    
     def forward_train(self,
-                      feats: List[torch.Tensor],
-                      img_metas: List[Dict],
-                      gt_bboxes: List[torch.Tensor],
-                      gt_labels: List[torch.Tensor],
-                      gt_masks: List[torch.Tensor],
-                      gt_semantic_seg: Optional[List[torch.Tensor]],
-                      gt_caption_ids: List[torch.Tensor],
-                      gt_caption_mask: List[torch.Tensor],
-                      gt_caption_nouns_ids: List[torch.Tensor],
-                      gt_caption_nouns_mask: List[torch.Tensor],
-                      gt_bboxes_ignore: Optional[torch.Tensor] =None,
-                      **kwargs) -> Dict[str, torch.Tensor]:
+                    feats: List[torch.Tensor],
+                    img_metas: List[Dict],
+                    gt_bboxes: List[torch.Tensor],
+                    gt_labels: List[torch.Tensor],
+                    gt_masks: List[torch.Tensor],
+                    gt_semantic_seg: Optional[List[torch.Tensor]],
+                    gt_caption_ids: List[torch.Tensor],
+                    gt_caption_mask: List[torch.Tensor],
+                    gt_caption_nouns_ids: List[torch.Tensor],
+                    gt_caption_nouns_mask: List[torch.Tensor],
+                    gt_bboxes_ignore: Optional[torch.Tensor] =None,
+                    **kwargs) -> Dict[str, torch.Tensor]:
         """Forward function for training mode.
 
         Args:
@@ -797,7 +790,6 @@ class Mask2FormerHeadOpen(MaskFormerHead):
 
     def simple_test(self, feats: List[torch.Tensor], img_metas: List[Dict], **kwargs) -> Tuple[torch.Tensor]:
         """Tests without augmentaton.
-
         Args:
             feats: Multi-level features from the upstream network, each is a 4D-tensor.
             img_metas: List of image information.

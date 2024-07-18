@@ -29,6 +29,7 @@ class PathGroundOpen(CocoDatasetOpen):
         unknown_file (optional): The path to a file to store the name of unknown classes. Defaults to None.
         class_agnostic (optional): If True, train a class agnositic model. Defaults to False.
         emb_type (optional): The type of embeddings. Defaults to `bert`.
+        use_reduced_size_dataset (optional): If True, use a smaller dataset for fast debugging. Defaults to False.
     Reference:
         https://www.youtube.com/watch?v=jftZBfMZj8k
     """
@@ -54,6 +55,7 @@ class PathGroundOpen(CocoDatasetOpen):
         max_ann_per_image: int=100,
         nouns_parser: str='med_lvis',
         emb_type='bert',
+        use_reduced_size_dataset: bool=False,
     ) -> None:
         super().__init__(
             ann_file=ann_file,
@@ -75,5 +77,6 @@ class PathGroundOpen(CocoDatasetOpen):
             ann_sample_rate=ann_sample_rate,
             max_ann_per_image=max_ann_per_image,
             nouns_parser=nouns_parser,
+            use_reduced_size_dataset=use_reduced_size_dataset,
         )
         

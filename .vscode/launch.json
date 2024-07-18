@@ -50,6 +50,7 @@
                 "configs/instance/coco_b48n17.py",
                 //"configs/instance/coco_b48n17.py",
                 "checkpoints/coco_instance_ag3x_1x.pth",
+                // "--show",
                 "--eval",
                 "bbox",
                 "segm"

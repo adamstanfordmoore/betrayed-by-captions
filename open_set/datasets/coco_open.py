@@ -90,7 +90,9 @@ class CocoDatasetOpen(CustomDataset):
                 eval_types=[],
                 ann_sample_rate=1.0,
                 max_ann_per_image=100,
-                nouns_parser='lvis'):
+                nouns_parser='lvis',
+                use_reduced_size_dataset: bool=False,
+                ):
         self.test_mode = test_mode
         self.known_file = known_file
         self.unknown_file = unknown_file
@@ -101,6 +103,7 @@ class CocoDatasetOpen(CustomDataset):
         self.eval_types = eval_types
         self.ann_sample_rate = ann_sample_rate
         self.max_ann_per_image = max_ann_per_image
+        self._use_reduced_size_dataset = use_reduced_size_dataset
         super().__init__(
             ann_file,
             pipeline,
@@ -169,8 +172,8 @@ class CocoDatasetOpen(CustomDataset):
 
         self.img_ids = self.coco.get_img_ids()
         
-        # Hack to reduce the training size
-        self.img_ids = self.img_ids[:100]
+        if self._use_reduced_size_dataset:
+            self.img_ids = self.img_ids[:400]
         
         data_infos = []
         total_ann_ids = []

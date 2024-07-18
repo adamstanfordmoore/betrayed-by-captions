@@ -281,7 +281,8 @@ class CocoPanopticDatasetOpen(CocoDataset):
                  emb_type='bert',
                  caption_ann_file=None,
                  ann_sample_rate=1.0,
-                 max_ann_per_image=100
+                 max_ann_per_image=100,
+                 use_reduced_size_dataset: bool=False,
                  ):
         self.known_file = known_file
         self.unknown_file = unknown_file
@@ -294,6 +295,7 @@ class CocoPanopticDatasetOpen(CocoDataset):
         self.max_ann_per_image = max_ann_per_image
 
         self.file_client_args = file_client_args
+        self._use_reduced_size_dataset = use_reduced_size_dataset
 
         super().__init__(
             ann_file,
@@ -305,7 +307,8 @@ class CocoPanopticDatasetOpen(CocoDataset):
             proposal_file=proposal_file,
             test_mode=test_mode,
             filter_empty_gt=filter_empty_gt,
-            file_client_args=file_client_args)
+            file_client_args=file_client_args,
+        )
         self.ins_ann_file = ins_ann_file
 
         if self.caption_ann_file is not None:
@@ -341,6 +344,8 @@ class CocoPanopticDatasetOpen(CocoDataset):
         self.categories = self.coco.cats
 
         self.img_ids = self.coco.get_img_ids()
+        if self._use_reduced_size_dataset:
+            self.img_ids = self.img_ids[:500]
 
         data_infos = []
         for i in self.img_ids:

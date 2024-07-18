@@ -254,7 +254,9 @@ data = dict(
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline,
         unknown_file=unknown_file,
-        class_agnostic=False),
+        class_agnostic=False,
+        use_reduced_size_dataset=True,
+        ),
     test=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/panoptic_val2017.json',
@@ -262,7 +264,9 @@ data = dict(
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline,
         unknown_file=unknown_file,
-        class_agnostic=False))
+        class_agnostic=False,
+        use_reduced_size_dataset=True,
+        ))
 
 embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
 # optimizer
