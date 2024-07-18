@@ -41,7 +41,7 @@ We conduct extensive experiments on the COCO dataset with two settings: Open Voc
    cd betrayed-by-captions
    ```
 
-2. [SKIP for PATHAI nodes as different GPUs] Create Conda Environment and Install Dependencies
+2. [SKIP THESE STEPS and follow step 3 instructions for PATHAI ACC4 GPUs] Create Conda Environment and Install Dependencies
 
    ```bash
     conda create -n cgg python=3.8
