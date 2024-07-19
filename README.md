@@ -221,14 +221,15 @@ bash ./tools/dist_test.sh \
     --eval bbox segm
 ```
 
-Run the following commands for evaluation on OSPS.
+Run the following commands for evaluation on OSPS. 
+*Note PQ is the only allowed metric by default
 
 Run on single GPU:
 ``` shell
 python tools/test.py \
     configs/openset_panoptic/coco_panoptic_p20.py \
     checkpoints/coco_panoptic_p20.pth \
-    --eval bbox segm
+    --eval pq
 ```
 
 Run on multiple GPUs:
@@ -237,7 +238,7 @@ bash ./tools/dist_test.sh \
     configs/openset_panoptic/coco_panoptic_p20.py \
     checkpoints/coco_panoptic_p20.pth \
     8 \
-    --eval bbox segm
+    --eval pq
 ```
 
 You will get the scores as paper reported. The output will also be saved in `work_dirs/{config_name}`.

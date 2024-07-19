@@ -8,11 +8,11 @@ num_unknown_classes = 17
 num_classes = num_things_classes + num_stuff_classes
 num_known_classes = num_classes - num_unknown_classes
 
-known_file = f'./datasets/unknown/known_{num_classes}.txt'
-unknown_file = f'./datasets/unknown/unknown_{num_unknown_classes}.txt'
-class_to_emb_file = f'./datasets/embeddings/coco_class_with_bert_emb.json'
+known_file = f'/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/datasets/unknown/known_{num_classes}.txt'
+unknown_file = f'/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/datasets/unknown/unknown_{num_unknown_classes}.txt'
+class_to_emb_file = f'/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/datasets/embeddings/coco_class_with_bert_emb.json'
 #init_path = './pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining
-init_path = './checkpoints/coco_instance_ag3x_1x.pth'  # From the last checkpoint
+init_path = '/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/checkpoints/coco_instance_ag3x_1x.pth'  # From the last checkpoint
 
 model = dict(
     type='Mask2FormerOpen',

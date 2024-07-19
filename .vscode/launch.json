@@ -4,7 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
             "name": "inference",
             "type": "debugpy",
@@ -76,7 +75,7 @@
                 "configs/openset_panoptic/coco_panoptic_p20.py",
                 "checkpoints/coco_panoptic_p20.pth",
                 "--eval",
-                "segm"
+                "pq"
             ],
             "justMyCode": false,
         },

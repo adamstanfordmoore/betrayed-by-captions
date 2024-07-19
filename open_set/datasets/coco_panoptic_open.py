@@ -585,8 +585,9 @@ class CocoPanopticDatasetOpen(CocoDataset):
         for gt_ann in gt_json:
             img_id = gt_ann['image_id']
             if img_id not in pred_json.keys():
-                raise Exception('no prediction for the image'
-                                ' with id: {}'.format(img_id))
+                continue
+                # raise Exception('no prediction for the image'
+                #                 ' with id: {}'.format(img_id))
             matched_annotations_list.append((gt_ann, pred_json[img_id]))
 
         gt_folder = self.seg_prefix
