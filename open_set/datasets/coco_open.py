@@ -200,10 +200,13 @@ class CocoDatasetOpen(CustomDataset):
         Returns:
             Annotation info of specified index.
         """
+        
         data_info = self.data_infos[idx].copy()
         img_id = data_info['id']
+        
         ann_ids = self.coco.get_ann_ids(img_ids=[img_id])
         ann_info = self.coco.load_anns(ann_ids)
+         
         if self.coco_caption is not None:
             caption_ann_ids = self.coco_caption.get_ann_ids(img_ids=[img_id])
             caption_ann_info = self.coco_caption.load_anns(caption_ann_ids)
@@ -358,6 +361,9 @@ class CocoDatasetOpen(CustomDataset):
             caption_ids = caption_ids[:self.max_tokens]
             padded_ids[:len(caption_ids)] = caption_ids
             attention_mask[:len(caption_ids)] = [1] * len(caption_ids)
+            if caption_nouns is None:
+                caption_nouns = ""
+                
             caption_nouns_ids = self.tokenizer.encode(caption_nouns, add_special_tokens=False)
             caption_nouns_ids = caption_nouns_ids[:self.max_tokens]
             padded_nouns_ids[:len(caption_nouns_ids)] = caption_nouns_ids

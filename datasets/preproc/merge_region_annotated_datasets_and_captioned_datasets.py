@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import shutil
 from tqdm import tqdm
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 _DATASETS_IMG_FOLDERS_BY_NAME = {
     'PanNuke': Path('/jupyter-users-home/tan-2enguyen/datasets/pathology/pannuke/pannuke_coco/images'),
@@ -28,7 +28,7 @@ ANNOTATION_SPLITS_TO_MERGES = {
 }
 
 logging.set_verbosity(logging.INFO)
-
+        
 def _merge_all() -> None:
     _TARGET_FOLDER = Path('/jupyter-users-home/tan-2enguyen/datasets/pathology/anno_caption_merged')
     output_folders = _create_output_dataset_folders(target_folder_path = _TARGET_FOLDER)

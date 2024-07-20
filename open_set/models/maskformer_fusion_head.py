@@ -42,7 +42,6 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
         if self.use_class_emb:
             class_to_emb_file = kwargs['class_to_emb_file']
             class_to_emb = mmcv.load(class_to_emb_file)
-            ordered_class_names = []
             all_class_embs = torch.zeros((self.num_classes + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
             novel_class_embs = torch.zeros((len(self.unknown_cat_names) + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
             base_class_embs = torch.zeros((len(all_class_embs) - len(novel_class_embs) + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
@@ -59,7 +58,6 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
                         base_class_embs[k, :] = torch.FloatTensor(class_dict['emb'])
                         k += 1
                 all_class_embs[i, :] = torch.FloatTensor(class_dict['emb'])
-                ordered_class_names.append(class_dict['name'])
                 i += 1
             # automatically to cuda
             self.register_buffer('all_class_embs', all_class_embs)
@@ -68,7 +66,6 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
             self.all_classes = len(all_class_embs) - 1
             self.novel_classes = len(novel_class_embs) - 1
             self.base_classes = len(base_class_embs) - 1
-            self.ordered_class_names = ordered_class_names
 
     def forward_train(self, **kwargs):
         """MaskFormerFusionHead has no training loss."""
