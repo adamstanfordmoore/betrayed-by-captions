@@ -200,10 +200,13 @@ class CocoDatasetOpen(CustomDataset):
         Returns:
             Annotation info of specified index.
         """
+        
         data_info = self.data_infos[idx].copy()
         img_id = data_info['id']
+        
         ann_ids = self.coco.get_ann_ids(img_ids=[img_id])
         ann_info = self.coco.load_anns(ann_ids)
+         
         if self.coco_caption is not None:
             caption_ann_ids = self.coco_caption.get_ann_ids(img_ids=[img_id])
             caption_ann_info = self.coco_caption.load_anns(caption_ann_ids)

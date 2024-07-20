@@ -170,8 +170,7 @@ model = dict(
         oversample_ratio=3.0,
         importance_sample_ratio=0.75,
         assigner=dict(  # Assigner config
-            type='MaskHungarianAssignerOpen',
-            cls_cost=dict(type='ClassificationCost', weight=1.0),
+            type='MultiModelHungarianAssignerOpen',
             cls_emb_cost=dict(type='ClassificationCost', weight=2.0),
             mask_cost=dict(
                 type='CrossEntropyLossCost', weight=5.0, use_sigmoid=True),
@@ -181,7 +180,7 @@ model = dict(
         ),
     
     test_cfg=dict(
-        eval_types=['all_results'],
+        eval_types=['base_results'],
         # max_per_image is for instance segmentation.
         max_per_image=100,
         iou_thr=0.5,
@@ -249,8 +248,8 @@ data = dict(
     workers_per_gpu=minibatch_size,
     train=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations_region_only/train_instances.json',
-        caption_ann_file=data_root + 'annotations_region_only/train_captions.json',
+        ann_file=data_root + 'annotations_mixed/train_instances.json',
+        caption_ann_file=data_root + 'annotations_mixed/train_captions.json',
         img_prefix=data_root + 'images/',
         transform_pipeline=train_pipeline,
         
@@ -264,8 +263,8 @@ data = dict(
     
     val=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations_region_only/val_instances.json',
-        caption_ann_file=data_root + 'annotations_region_only/val_captions.json',
+        ann_file=data_root + 'annotations_mixed/val_instances.json',
+        caption_ann_file=data_root + 'annotations_mixed/val_captions.json',
         
         img_prefix=data_root + 'images/',
         transform_pipeline=test_pipeline,
@@ -273,21 +272,21 @@ data = dict(
         known_file=known_file,
         unknown_file=unknown_file,
         class_agnostic=False,
-        eval_types=['all_results'],
+        eval_types=['base_results'],
         use_reduced_size_dataset=False,    
     ),
     
     test=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations_region_only/val_instances.json',
-        caption_ann_file=data_root + 'annotations_region_only/val_captions.json',
+        ann_file=data_root + 'annotations_mixed/val_instances.json',
+        caption_ann_file=data_root + 'annotations_mixed/val_captions.json',
         img_prefix=data_root + 'images/',
         transform_pipeline=test_pipeline,
         
         known_file=known_file,
         unknown_file=unknown_file,
         class_agnostic=False,
-        eval_types=['all_results'],
+        eval_types=['base_results'],
         use_reduced_size_dataset=False
         ),
     )
