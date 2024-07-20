@@ -9,11 +9,11 @@ num_unknown_classes = 0
 num_classes = num_things_classes + num_stuff_classes
 num_known_classes = num_classes - num_unknown_classes
 
-known_file = f'./datasets/unknown/path_ground_known_{num_classes}.txt'
-unknown_file = f'./datasets/unknown/path_ground_unknown_{num_unknown_classes}.txt'
-class_to_emb_file = f'./datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
+known_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/unknown/path_ground_known_{num_classes}.txt'
+unknown_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/unknown/path_ground_unknown_{num_unknown_classes}.txt'
+class_to_emb_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
 embeding_type = 'pubmed-bert'
-init_path = './pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
+init_path = '/jupyter-users-home/tan-2enguyen/betrayed-by-captions/pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
 
 model = dict(
     type='Mask2FormerOpen',  # Name of the model
@@ -310,12 +310,12 @@ optimizer = dict(
         norm_decay_mult=0.0))
 optimizer_config = dict(grad_clip=dict(max_norm=0.01, norm_type=2))
 
-# learning policy
+# learning policy 25, 50, 75
 lr_config = dict(
     policy='step',
     gamma=0.1,
     by_epoch=False,
-    step=[70000, 80000],
+    step=[15475, 30950, 46425],
     warmup='linear',
     warmup_by_epoch=False,
     warmup_ratio=1.0,  # no warmup
@@ -335,10 +335,10 @@ log_config = dict(
 workflow = [('train', 1)]
 
 checkpoint_config = dict(
-    by_epoch=True, interval=50, save_last=True, max_keep_ckpts=2) 
+    by_epoch=True, interval=10, save_last=True, max_keep_ckpts=2) 
 
 evaluation = dict(
-    interval=20,  # in the unit of epochs.
+    interval=10,  # in the unit of epochs.
     metric=['bbox', 'segm'],
     classwise=True
 )
