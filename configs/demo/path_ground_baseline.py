@@ -9,11 +9,11 @@ num_unknown_classes = 0
 num_classes = num_things_classes + num_stuff_classes
 num_known_classes = num_classes - num_unknown_classes
 
-known_file = f'../datasets/unknown/path_ground_known_{num_classes}.txt'
+known_file = f'//jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/unknown/path_ground_known_{num_classes}.txt'
 unknown_file = None
-class_to_emb_file = f'../datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
+class_to_emb_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
 embeding_type = 'pubmed-bert'
-init_path = './pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
+init_path = '/jupyter-users-home/tan-2enguyen/pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
 
 model = dict(
     type='Mask2FormerOpen',  # Name of the model
