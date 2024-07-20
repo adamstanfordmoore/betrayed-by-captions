@@ -327,7 +327,7 @@ runner = dict(
 )
 
 log_config = dict(
-    interval=100,  # in the unit of iters, #iters = #images total / (mini batch size) * epoches
+    interval=600,  # in the unit of iters, #iters = #images total / (mini batch size) * epoches
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
         dict(type='TensorboardLoggerHook', by_epoch=False)
@@ -338,7 +338,7 @@ checkpoint_config = dict(
     by_epoch=True, interval=5, save_last=True, max_keep_ckpts=3) 
 
 evaluation = dict(
-    interval=1,  # in the unit of epochs.
+    interval=5,  # in the unit of epochs.
     metric=['bbox', 'segm'],
     classwise=True
 )
