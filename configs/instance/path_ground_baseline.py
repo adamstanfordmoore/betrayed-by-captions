@@ -335,10 +335,10 @@ log_config = dict(
 workflow = [('train', 1)]
 
 checkpoint_config = dict(
-    by_epoch=True, interval=5, save_last=True, max_keep_ckpts=2) 
+    by_epoch=True, interval=5, save_last=True, max_keep_ckpts=3) 
 
 evaluation = dict(
-    interval=5,  # in the unit of epochs.
+    interval=1,  # in the unit of epochs.
     metric=['bbox', 'segm'],
     classwise=True
 )
