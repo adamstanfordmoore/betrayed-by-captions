@@ -5,6 +5,9 @@
     "version": "0.2.0",
     "configurations": [
 
+    
+    
+
 
         {
             "address": "TCP/IP address of process to be debugged",
@@ -144,7 +147,7 @@
                 "--master_port",
                 "29500",
                 "./tools/train.py",
-                "configs/instance/path_ground_with_unknowns.py",
+                "configs/instance/path_ground_baseline.py",
                 "--seed",
                 "0",
                 "--launcher",

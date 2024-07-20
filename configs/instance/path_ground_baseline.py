@@ -9,9 +9,10 @@ num_unknown_classes = 0
 num_classes = num_things_classes + num_stuff_classes
 num_known_classes = num_classes - num_unknown_classes
 
-known_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/unknown/path_ground_known_{num_classes}.txt'
-unknown_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/unknown/path_ground_unknown_{num_unknown_classes}.txt'
-class_to_emb_file = f'/jupyter-users-home/tan-2enguyen/betrayed-by-captions/datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
+known_file = f'./datasets/unknown/path_ground_known_{num_classes}.txt'
+# Don't use an empty file, it will create a class name of ''
+unknown_file = None #f'./datasets/unknown/path_ground_unknown_{num_unknown_classes}.txt'
+class_to_emb_file = f'./datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
 embeding_type = 'pubmed-bert'
 init_path = '/jupyter-users-home/tan-2enguyen/betrayed-by-captions/pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
 
@@ -327,7 +328,7 @@ runner = dict(
 )
 
 log_config = dict(
-    interval=20,  # in the unit of iters, #iters = #images total / (mini batch size) * epoches
+    interval=100,  # in the unit of iters, #iters = #images total / (mini batch size) * epoches
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
         dict(type='TensorboardLoggerHook', by_epoch=False)
