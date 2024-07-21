@@ -1,9 +1,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import OrderedDict
+from typing import Dict, OrderedDict, List
 
 import torch
 import torch.nn.functional as F
-
 import mmcv
 
 from mmdet.core.evaluation.panoptic_utils import INSTANCE_OFFSET
@@ -362,31 +361,26 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
 
 
     def simple_test(self,
-                    mask_cls_results,
-                    mask_cls_emb_results,
-                    mask_pred_results,
-                    img_metas,
+                    mask_cls_results: torch.Tensor,
+                    mask_cls_emb_results: torch.Tensor,
+                    mask_pred_results: torch.Tensor,
+                    img_metas: List[Dict],
                     **kwargs):
         """Test segment without test-time aumengtation.
 
         Only the output of last decoder layers was used.
 
         Args:
-            mask_cls_results (Tensor): Mask classification logits,
-                shape (batch_size, num_queries, cls_out_channels).
-                Note `cls_out_channels` should includes background.
-            mask_cls_emb_results (Tensor): Embedding prediction,
-                shape (batch_size, num_queries, d_l)
-            mask_pred_results (Tensor): Mask logits, shape
-                (batch_size, num_queries, h, w).
-            img_metas (list[dict]): List of image information.
+            mask_cls_results: A tensor of shape (batch_size, num_queries, cls_out_channels).
+                Note `cls_out_channels` that stores the class prediction logits of each query.
+            mask_cls_emb_results: A tensor of shape (batch_size, num_queries, d_l) that store the class embedding predictions.
+            mask_pred_results: A tensor of shape (batch_size, num_queries, h, w) that store the predicted mask logits.
+            img_metas List[Dict]: A list of image information.
             rescale (bool, optional): If True, return boxes in
                 original image space. Default False.
 
         Returns:
-            list[dict[str, Tensor | tuple[Tensor]]]: Semantic segmentation \
-                results and panoptic segmentation results for each \
-                image.
+            list[dict[str, Tensor | tuple[Tensor]]]: Semantic segmentation results and panoptic segmentation results for each image.
 
             .. code-block:: none
 

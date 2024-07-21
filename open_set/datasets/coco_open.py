@@ -30,7 +30,7 @@ from mmdet.datasets.custom import CustomDataset
 from .utils.parser import LVISParser, NLTKParser, ImageNet21KParser, MedLVISParser
 from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 
-
+_LIMITED_DATASET_SIZE = 10000
 @DATASETS.register_module()
 class CocoDatasetOpen(CustomDataset):
 
@@ -173,7 +173,7 @@ class CocoDatasetOpen(CustomDataset):
         self.img_ids = self.coco.get_img_ids()
         
         if self._use_reduced_size_dataset:
-            self.img_ids = self.img_ids[:120]
+            self.img_ids = self.img_ids[:min(len(self.img_ids), _LIMITED_DATASET_SIZE)]
         
         data_infos = []
         total_ann_ids = []
@@ -215,8 +215,13 @@ class CocoDatasetOpen(CustomDataset):
             caption = caption_ann_info[random_idx]["caption"]
             data_info["caption"] = caption
             data_info["caption_nouns"] = " ".join(self._extract_nouns_from_caption(caption))
-        return self._parse_ann_info(data_info, ann_info)
-
+        
+        try:
+            out_info = self._parse_ann_info(data_info, ann_info)
+        except:
+            print(f"Can't get annotation info with idx = {idx}, datainfo = {data_info}, ann_info = {ann_info}")
+        return out_info
+    
     def _extract_nouns_from_caption(self, caption: str) -> Set[str]:
         """Returns a set of nouns in the caption."""
         unique_nns = []
@@ -405,7 +410,7 @@ class CocoDatasetOpen(CustomDataset):
             _bbox[3] - _bbox[1],
         ]
 
-    def _segm2json(self, results, pred_cats):
+    def _segm2json(self, results, pred_cats: List[int]):
         """Convert instance segmentation results to COCO json style."""
         bbox_json_results = []
         segm_json_results = []
@@ -420,7 +425,11 @@ class CocoDatasetOpen(CustomDataset):
                     data['image_id'] = img_id
                     data['bbox'] = self.xyxy2xywh(bboxes[i])
                     data['score'] = float(bboxes[i][4])
-                    data['category_id'] = pred_cats[label]
+                    if label < len(pred_cats):
+                        data['category_id'] = pred_cats[label]
+                    else:
+                        data['category_id'] = None
+                        
                     if self.class_agnostic:
                         data['isthing'] = label == 0
                     bbox_json_results.append(data)
@@ -433,7 +442,10 @@ class CocoDatasetOpen(CustomDataset):
                     data['image_id'] = img_id
                     data['bbox'] = self.xyxy2xywh(bboxes[i])
                     data['score'] = float(mask_score[i])
-                    data['category_id'] = pred_cats[label]
+                    if label < len(pred_cats):
+                        data['category_id'] = pred_cats[label]
+                    else:
+                        data['category_id'] = None
                     if self.class_agnostic:
                         data['isthing'] = label == 0
                     if isinstance(segms[i]['counts'], bytes):
@@ -442,7 +454,7 @@ class CocoDatasetOpen(CustomDataset):
                     segm_json_results.append(data)
         return bbox_json_results, segm_json_results
 
-    def results2json(self, results, outfile_prefix, pred_cats):
+    def results2json(self, results, outfile_prefix, pred_cats: List[int]):
         """Dump the detection results to a COCO style json file.
 
         There are 3 types of results: proposals, bbox predictions, mask
@@ -456,7 +468,7 @@ class CocoDatasetOpen(CustomDataset):
                 prefix is "somepath/xxx", the json files will be named
                 "somepath/xxx.bbox.json", "somepath/xxx.segm.json",
                 "somepath/xxx.proposal.json".
-            pred_cats (list[int]): Prediction label -> cat ids
+            pred_cats: A list of prediction categories.
 
         Returns:
             dict[str: str]: Possible keys are "bbox", "segm", "proposal", and \
@@ -471,12 +483,13 @@ class CocoDatasetOpen(CustomDataset):
         mmcv.dump(json_results[1], result_files['segm'])
         return result_files
 
-    def format_results(self, results, pred_cats, jsonfile_prefix=None):
+    def format_results(self, results, pred_cats: List[int], jsonfile_prefix=None):
         """Format the results to json (standard format for COCO evaluation).
 
         Args:
             results (list[tuple | numpy.ndarray]): Testing results of the
                 dataset.
+            pred_cats: A list of prediction categories.
             jsonfile_prefix (str | None): The prefix of json files. It includes
                 the file path and the prefix of filename, e.g., "a/b/prefix".
                 If not specified, a temp file will be created. Default: None.
@@ -743,7 +756,7 @@ class CocoDatasetOpen(CustomDataset):
                 tmp_dir.cleanup()
                 
         return eval_results
-
+        
     def save_results(self, results):
         embedding_results = []
         cat_results = []
