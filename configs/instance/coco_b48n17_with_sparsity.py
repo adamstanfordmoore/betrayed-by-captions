@@ -121,8 +121,11 @@ model = dict(
             reduction='mean',
             class_weight=[1.0] * num_known_classes + [0.1]),
         loss_grounding=dict(
-            type='GroundingLoss',
-            loss_weight=2.0),
+            type='GroundingLossWithSparistyConstrain',
+            word_embedding_dim=768,
+            loss_weight=2.0,
+            sparsity_loss_relative_weight=0.5,
+            ),
         loss_caption_generation=dict(
             type='CrossEntropyLoss',
             ignore_index=0,
@@ -257,7 +260,7 @@ data = dict(
         unknown_file=unknown_file,
         class_agnostic=False,
         eval_types=['all_results', 'novel_results', 'base_results'],
-        use_reduced_size_dataset=True,
+        use_reduced_size_dataset=False,
     ),
     test=dict(
         type=dataset_type,
@@ -268,7 +271,7 @@ data = dict(
         unknown_file=unknown_file,
         class_agnostic=False,
         eval_types=['all_results', 'novel_results', 'base_results'],
-        use_reduced_size_dataset=True,
+        use_reduced_size_dataset=False,
     ))
 
 embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
@@ -300,7 +303,7 @@ lr_config = dict(
     warmup_ratio=1.0,  # no warmup
     warmup_iters=10)
 
-max_epochs = 20
+max_epochs = 12
 runner = dict(type='EpochBasedRunner', max_epochs=max_epochs)
 
 log_config = dict(
