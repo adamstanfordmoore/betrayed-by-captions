@@ -787,6 +787,7 @@ class Mask2FormerHeadOpen(MaskFormerHead):
                 Note `cls_out_channels` should includes background.
             mask_cls_emb_results: embedding predictions, shape (batch_size, num_queries, d_l).
             mask_pred_results (Tensor): Mask logits, shape (batch_size, num_queries, h, w).
+            caption_generation_results: The results of the caption generation.
         """
         all_layer_cls_scores, all_cls_emb_preds, all_layer_mask_preds = self(feats, img_metas)
         mask_cls_results = all_layer_cls_scores[-1]

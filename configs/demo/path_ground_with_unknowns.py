@@ -9,11 +9,11 @@ num_unknown_classes = 18
 num_classes = num_things_classes + num_stuff_classes
 num_known_classes = num_classes - num_unknown_classes
 
-known_file = f'./datasets/unknown/path_ground_known_{num_classes}.txt'
-unknown_file = f'./datasets/unknown/path_ground_unknown_{num_unknown_classes}.txt'
-class_to_emb_file = f'./datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
+known_file = f'../datasets/unknown/path_ground_known_{num_classes}.txt'
+unknown_file = f'../datasets/unknown/path_ground_unknown_{num_unknown_classes}.txt'
+class_to_emb_file = f'../datasets/embeddings/quilt_class_with_pubmed_bert_emb.json'
 embeding_type = 'pubmed-bert'
-init_path = './pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
+init_path = '../pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining  # Class agnostic pretraining
 
 model = dict(
     type='Mask2FormerOpen',  # Name of the model
@@ -252,7 +252,7 @@ data = dict(
         ann_file=data_root + 'annotations_mixed/train_instances.json',
         caption_ann_file=data_root + 'annotations_mixed/train_captions.json',
         img_prefix=data_root + 'images/',
-        transform_pipeline=train_pipeline,
+        pipeline=train_pipeline,
         
         filter_empty_gt=False,
         known_file=known_file,
@@ -268,7 +268,7 @@ data = dict(
         caption_ann_file=data_root + 'annotations_mixed/val_captions.json',
         
         img_prefix=data_root + 'images/',
-        transform_pipeline=test_pipeline,
+        pipeline=test_pipeline,
         
         known_file=known_file,
         unknown_file=unknown_file,
@@ -282,12 +282,12 @@ data = dict(
         ann_file=data_root + 'annotations_mixed/val_instances.json',
         caption_ann_file=data_root + 'annotations_mixed/val_captions.json',
         img_prefix=data_root + 'images/',
-        transform_pipeline=test_pipeline,
+        pipeline=test_pipeline,
         
         known_file=known_file,
         unknown_file=unknown_file,
         class_agnostic=False,
-        eval_types=['base_results'],  # We don't have the segmentation masks for novel classes!
+        eval_types=['base_results'],
         use_reduced_size_dataset=True,
         ),
     )
