@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from typing import Optional
 from mmcv.runner import get_dist_info
 
 from mmdet.models.builder import LOSSES
@@ -118,13 +118,15 @@ class GroundingLossWithSparistyConstrain(GroundingLoss):
         reduction: str='mean',
         loss_weight: float=1.0,
         sparsity_loss_relative_weight: float = 0.0,
+        sparsity_coef: Optional[float]=None,
     ) -> None:
         super().__init__(reduction=reduction, loss_weight=loss_weight)
         if sparsity_loss_relative_weight > 1.0:
             raise ValueError("sparsity_loss_relative_weight can't be larger than 1")
         self._sparsity_loss_relative_weight = sparsity_loss_relative_weight
         self._no_des_emb = nn.Embedding(num_embeddings=1, embedding_dim=word_embedding_dim)
-    
+        self._sparsity_coef = sparsity_coef
+        
     def _grounding_loss(self, cls_emb_pred: torch.Tensor, gt_caption_noun_embs: torch.Tensor, gt_caption_mask: float, temperature: float) -> float:
         """Computing grounding loss
 
@@ -139,7 +141,7 @@ class GroundingLossWithSparistyConstrain(GroundingLoss):
         batch_size, num_queries, d_l = cls_emb_pred.shape
     
         gt_caption_noun_embs_with_no_desc = torch.cat([gt_caption_noun_embs, self._no_des_emb.weight[None, :].repeat(batch_size, 1, 1)], dim=1)  # (B, max_token + 1, d_l)
-        gt_caption_mask = torch.cat([gt_caption_mask, torch.zeros((batch_size, 1),device=gt_caption_mask.device)], dim=1)
+        gt_caption_mask = torch.cat([gt_caption_mask, torch.ones((batch_size, 1),device=gt_caption_mask.device)], dim=1)  # None description should be attended to
         _, num_max_tokens = gt_caption_mask.shape
         num_tokens = gt_caption_mask.sum(dim=1)  # batchsize
 
@@ -176,20 +178,29 @@ class GroundingLossWithSparistyConstrain(GroundingLoss):
         ) / 4
         
         return (1 - self._sparsity_loss_relative_weight) * similarity_loss + \
-            self._sparsity_loss_relative_weight * GroundingLossWithSparistyConstrain._v2l_sparsity_loss(att_v2l=attention_v2l, batch_size=batch_size)
+            self._sparsity_loss_relative_weight * self._v2l_attention_sparsity_loss(
+                att_v2l=attention_v2l, 
+                noun_mask=gt_caption_mask,
+                batch_size=batch_size)
             
-    @staticmethod
-    def _v2l_sparsity_loss(att_v2l: torch.Tensor, batch_size: int, target_mean: float=0.05) -> float:
-        """Computes the vision to language loss.
+    def _v2l_attention_sparsity_loss(self, att_v2l: torch.Tensor, noun_mask: torch.Tensor, batch_size: int) -> float:
+        """Computes the vision to language attention loss.
         
         Args: 
-            att_v2l: A tensor of shape [B^2, N_tok, Nq].
+            att_v2l: A tensor of shape [B^2, N_tok + 1, Nq]. Normalized to unit sum over the token dimension for each query. 
             batch_size: The size of the minibatch.
-            target_mean (optional): A number that specify the expected mean of mean over minibatch(att_v2l[(s,s), j, k])
+            noun_mask: A tensor of shape [B^2, N_token + 1] that defines the mask of valid noun.
         Returns:
-            The value of the mean KL( mean over s in minibatch(att_v2l[(s,s), j, k]).
+            The value the sparsity loss.
+        
+        Reference:
+            https://docs.google.com/document/d/128JlKiWCDNssiSuv_kQxzkrVG5sQAtM3hBXfsethgTs/edit#bookmark=id.xhvki9zdtqst
         """
+        if self._sparsity_coef is None:
+            self._sparsity_coef = 1.0 / att_v2l.size(-1)
         inner_image_att_v2l = att_v2l[0:batch_size:]
-        rho = inner_image_att_v2l.mean(dim=0)  # [Ntok + 1, N_q]
-        loss = rho * torch.log(rho / target_mean) + (1 - rho) * torch.log((1 - rho) / (1-target_mean))
-        return loss.mean(dim=-1)  # The token (last) dimension is already normalized.
+        noun_mask = noun_mask[0:batch_size:,:,None]  # [B, N_token + 1]
+        # inner_image_att_v2l = inner_image_att_v2l * noun_mask  # Do not need to mask since the query should not match to a padded embedding.
+        average_rho = inner_image_att_v2l.mean(dim=0)  # [Ntok + 1, Nq] - We want this mean to be very small + similar to that of a Bernoulli variable dist.
+        loss = self._sparsity_coef * torch.log(self._sparsity_coef / average_rho) + (1 - self._sparsity_coef) * torch.log((1 - self._sparsity_coef) / (1-average_rho))
+        return loss.mean()
