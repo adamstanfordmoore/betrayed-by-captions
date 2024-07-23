@@ -1,9 +1,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import OrderedDict
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn.functional as F
-
 import mmcv
 
 from mmdet.core.evaluation.panoptic_utils import INSTANCE_OFFSET
@@ -40,25 +39,26 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
         else:
             self.unknown_cat_names = []
         if self.use_class_emb:
-            class_to_emb_file = kwargs['class_to_emb_file']
-            class_to_emb = mmcv.load(class_to_emb_file)
-            all_class_embs = torch.zeros((self.num_classes + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
-            novel_class_embs = torch.zeros((len(self.unknown_cat_names) + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
-            base_class_embs = torch.zeros((len(all_class_embs) - len(novel_class_embs) + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
-            i = j = k = 0
-            for idx, class_dict in enumerate(class_to_emb):
-                if self.known_file:
-                    if class_dict['name'] not in self.known_cat_names:
-                        continue
-                if self.unknown_file:
-                    if class_dict['name'] in self.unknown_cat_names:
-                        novel_class_embs[j, :] = torch.FloatTensor(class_dict['emb'])
-                        j += 1
-                    else:
-                        base_class_embs[k, :] = torch.FloatTensor(class_dict['emb'])
-                        k += 1
-                all_class_embs[i, :] = torch.FloatTensor(class_dict['emb'])
-                i += 1
+            self._class_to_emb_file = kwargs['class_to_emb_file']
+            class_to_emb = {class_dict['name']: class_dict['emb'] for class_dict in mmcv.load(self._class_to_emb_file)}
+            emb_dim = len(list(class_to_emb.values())[0])
+            
+            all_cat_names = self.known_cat_names.copy()
+            all_cat_names.extend(self.unknown_cat_names)
+            all_class_embs = torch.zeros((self.num_classes + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(all_cat_names):
+                all_class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+            
+            base_class_embs = torch.zeros((self.num_classes - len(self.unknown_cat_names) + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(self.known_cat_names):
+                if name in self.unknown_cat_names:
+                    continue
+                base_class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+            
+            novel_class_embs = torch.zeros((len(self.unknown_cat_names) + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(self.unknown_cat_names):
+                novel_class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+                
             # automatically to cuda
             self.register_buffer('all_class_embs', all_class_embs)
             self.register_buffer('novel_class_embs', novel_class_embs)
@@ -362,31 +362,26 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
 
 
     def simple_test(self,
-                    mask_cls_results,
-                    mask_cls_emb_results,
-                    mask_pred_results,
-                    img_metas,
+                    mask_cls_results: torch.Tensor,
+                    mask_cls_emb_results: torch.Tensor,
+                    mask_pred_results: torch.Tensor,
+                    img_metas: List[Dict],
                     **kwargs):
-        """Test segment without test-time aumengtation.
+        """Test segment without test-time augmentation.
 
         Only the output of last decoder layers was used.
 
         Args:
-            mask_cls_results (Tensor): Mask classification logits,
-                shape (batch_size, num_queries, cls_out_channels).
-                Note `cls_out_channels` should includes background.
-            mask_cls_emb_results (Tensor): Embedding prediction,
-                shape (batch_size, num_queries, d_l)
-            mask_pred_results (Tensor): Mask logits, shape
-                (batch_size, num_queries, h, w).
-            img_metas (list[dict]): List of image information.
+            mask_cls_results: A tensor of shape (batch_size, num_queries, cls_out_channels).
+                Note `cls_out_channels` that stores the class prediction logits of each query.
+            mask_cls_emb_results: A tensor of shape (batch_size, num_queries, d_l) that store the class embedding predictions.
+            mask_pred_results: A tensor of shape (batch_size, num_queries, h, w) that store the predicted mask logits.
+            img_metas List[Dict]: A list of image information.
             rescale (bool, optional): If True, return boxes in
                 original image space. Default False.
 
         Returns:
-            list[dict[str, Tensor | tuple[Tensor]]]: Semantic segmentation \
-                results and panoptic segmentation results for each \
-                image.
+            list[dict[str, Tensor | tuple[Tensor]]]: Semantic segmentation results and panoptic segmentation results for each image.
 
             .. code-block:: none
 
@@ -421,39 +416,90 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
 
             result = dict()
 
-            if 'all_results' in eval_types:
-                # panoptic mode
-                if self.panoptic_mode:
-                    all_results = self.panoptic_postprocess_emb(
+            if 'grounding_str' in kwargs:
+                grounding_str_emb = self._get_embeddings_for_grounding_str(grounding_str=kwargs['grounding_str'])
+                result['grounding'] = self.process_grounding_result(
+                    mask_cls_emb_result, mask_pred_result, grounding_str_emb.to(mask_cls_emb_result.device),
+                    candidate_per_im= kwargs.get('candidate_per_im', 10)
+                )
+            else:
+                if 'all_results' in eval_types:
+                    # panoptic mode
+                    if self.panoptic_mode:
+                        all_results = self.panoptic_postprocess_emb(
+                            mask_cls_emb_result, mask_pred_result, self.all_class_embs)
+                        result['panoptic_all_results'] = all_results
+                    else:
+                        all_results = self.instance_postprocess_emb(
                         mask_cls_emb_result, mask_pred_result, self.all_class_embs)
-                    result['panoptic_all_results'] = all_results
-                else:
-                    all_results = self.instance_postprocess_emb(
-                    mask_cls_emb_result, mask_pred_result, self.all_class_embs)
 
-                    result['all_results'] = all_results
+                        result['all_results'] = all_results
 
-            if 'novel_results' in eval_types:
-                novel_results = self.instance_postprocess_emb(
-                    mask_cls_emb_result, mask_pred_result, self.novel_class_embs)
+                if 'novel_results' in eval_types:
+                    novel_results = self.instance_postprocess_emb(
+                        mask_cls_emb_result, mask_pred_result, self.novel_class_embs)
 
-                result['novel_results'] = novel_results
+                    result['novel_results'] = novel_results
 
-            if 'base_results' in eval_types:
-                base_results = self.instance_postprocess_emb(
-                    mask_cls_emb_result, mask_pred_result, self.base_class_embs)
-                result['base_results'] = base_results
+                if 'base_results' in eval_types:
+                    base_results = self.instance_postprocess_emb(
+                        mask_cls_emb_result, mask_pred_result, self.base_class_embs)
+                    result['base_results'] = base_results
 
-            if 'ins_results' in eval_types:
-                ins_results = self.instance_postprocess(
-                    mask_cls_result, mask_pred_result)
-                result['ins_results'] = ins_results\
-            
-            if 'pan_results' in eval_types:
-                pan_results = self.panoptic_postprocess(
-                    mask_cls_result, mask_pred_result)
-                result['pan_results'] = pan_results
+                if 'ins_results' in eval_types:
+                    ins_results = self.instance_postprocess(
+                        mask_cls_result, mask_pred_result)
+                    result['ins_results'] = ins_results\
+                
+                if 'pan_results' in eval_types:
+                    pan_results = self.panoptic_postprocess(
+                        mask_cls_result, mask_pred_result)
+                    result['pan_results'] = pan_results
 
             results.append(result)
 
         return results
+
+    def _get_embeddings_for_grounding_str(self, grounding_str: str) -> torch.Tensor:
+        class_to_emb = mmcv.load(self._class_to_emb_file)
+        for class_dict in class_to_emb:
+            if class_dict['name'] == grounding_str:
+                return torch.FloatTensor(class_dict['emb'])[None,:]
+        raise ValueError("Could not find the embedding of the grounding str in the class to embedding dictionary. You need to recompute them")
+
+    def process_grounding_result(self, mask_cls_emb: torch.Tensor, mask_pred: torch.Tensor, gt_cls_embs: torch.Tensor, candidate_per_im: int):
+        """Process grounding results by selecting the most correlated queries
+
+        Args:
+            mask_cls_emb: Embedding prediction of shape
+                (num_queries, d_l) for a image.
+            mask_pred (Tensor): Mask outputs of shape
+                (num_queries, h, w) for a image.
+
+        Returns:
+            tuple[Tensor]: Instance segmentation results.
+
+            - names_per_image (list[str]): Predicted class names of length n.
+            - bboxes (Tensor): Bboxes and scores with shape (n, 5) of \
+                positive region in binary mask, the last column is scores.
+            - mask_pred_binary (Tensor): Instance masks of \
+                shape (n, h, w).
+        """
+        max_per_image = self.test_cfg.get('max_per_image', 100)
+        num_queries = mask_cls_emb.shape[0]
+        #mask_cls_emb_score = self.get_cls_emb_scores(mask_cls_emb, gt_cls_embs)  # (num_queries, self.num_classes + 1)
+        dot_products = torch.matmul(mask_cls_emb, gt_cls_embs.t())
+        
+        
+        scores = dot_products[:, -1]  # shape (num_queries,)
+        scores_per_image, query_indices = scores.topk(candidate_per_im, sorted=False)
+        mask_pred = mask_pred[query_indices]
+
+        mask_pred_binary = (mask_pred > 0).float()
+        mask_scores_per_image = (mask_pred.sigmoid() * mask_pred_binary).flatten(1).sum(1) / (mask_pred_binary.flatten(1).sum(1) + 1e-6)
+        det_scores = scores_per_image * mask_scores_per_image
+        mask_pred_binary = mask_pred_binary.bool()
+        bboxes = mask2bbox(mask_pred_binary)
+        bboxes = torch.cat([bboxes, det_scores[:, None]], dim=-1)
+
+        return None, bboxes, mask_pred_binary

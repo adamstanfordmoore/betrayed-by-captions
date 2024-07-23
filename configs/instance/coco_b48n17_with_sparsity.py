@@ -8,11 +8,10 @@ num_unknown_classes = 17
 num_classes = num_things_classes + num_stuff_classes
 num_known_classes = num_classes - num_unknown_classes
 
-known_file = f'/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/datasets/unknown/known_{num_classes}.txt'
-unknown_file = f'/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/datasets/unknown/unknown_{num_unknown_classes}.txt'
-class_to_emb_file = f'/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/datasets/embeddings/coco_class_with_bert_emb.json'
-#init_path = './pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining
-init_path = '/jupyter-users-home/adam-2estanford-2emoore/betrayed-by-captions/checkpoints/coco_instance_ag3x_1x.pth'  # From the last checkpoint
+known_file = f'./datasets/unknown/known_{num_classes}.txt'
+unknown_file = f'./datasets/unknown/unknown_{num_unknown_classes}.txt'
+class_to_emb_file = f'./datasets/embeddings/coco_class_with_bert_emb.json'
+init_path = './pretrained/class_ag_pretrained_3x.pth'  # From class agnostic pretraining
 
 model = dict(
     type='Mask2FormerOpen',
@@ -122,8 +121,11 @@ model = dict(
             reduction='mean',
             class_weight=[1.0] * num_known_classes + [0.1]),
         loss_grounding=dict(
-            type='GroundingLoss',
-            loss_weight=2.0),
+            type='GroundingLossWithSparistyConstrain',
+            word_embedding_dim=768,
+            loss_weight=2.0,
+            sparsity_loss_relative_weight=0.5,
+            ),
         loss_caption_generation=dict(
             type='CrossEntropyLoss',
             ignore_index=0,
@@ -258,7 +260,7 @@ data = dict(
         unknown_file=unknown_file,
         class_agnostic=False,
         eval_types=['all_results', 'novel_results', 'base_results'],
-        use_reduced_size_dataset=True,
+        use_reduced_size_dataset=False,
     ),
     test=dict(
         type=dataset_type,
@@ -269,7 +271,7 @@ data = dict(
         unknown_file=unknown_file,
         class_agnostic=False,
         eval_types=['all_results', 'novel_results', 'base_results'],
-        use_reduced_size_dataset=True,
+        use_reduced_size_dataset=False,
     ))
 
 embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
@@ -301,11 +303,11 @@ lr_config = dict(
     warmup_ratio=1.0,  # no warmup
     warmup_iters=10)
 
-max_epochs = 20
+max_epochs = 12
 runner = dict(type='EpochBasedRunner', max_epochs=max_epochs)
 
 log_config = dict(
-    interval=1,
+    interval=500,
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
         dict(type='TensorboardLoggerHook', by_epoch=False)

@@ -2,7 +2,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-
+from typing import Optional
 import transformers
 
 from mmcv.ops import RoIPool
@@ -10,6 +10,7 @@ from mmcv.parallel import collate, scatter
 
 from mmdet.datasets import replace_ImageToTensor
 from mmdet.datasets.pipelines import Compose
+from open_set.models.utils.bert_embeddings import BERT_MODEL_BY_EMBEDDING_TYPES
 
 def inference_detector(model: nn.Module, imgs, **kwargs):
     """Inference image(s) with the detector.
@@ -18,8 +19,7 @@ def inference_detector(model: nn.Module, imgs, **kwargs):
         model: The loaded detector.
         imgs (str/ndarray or list[str/ndarray] or tuple[str/ndarray]):
            Either image files or loaded images.
-        with_caption (bool): Whether inference caption generation results.
-
+        
     Returns:
         If imgs is a list or tuple, the same length list type results
         will be returned, otherwise return the detection results directly.
@@ -78,11 +78,24 @@ def inference_detector(model: nn.Module, imgs, **kwargs):
 def get_ids_embedding(model, ids):
     emb = model.bert_embeddings.word_embeddings(ids)
     emb = model.bert_embeddings.LayerNorm(emb).squeeze(0)
-    # if len(emb.shape) == 2:
-        # emb = emb.unsqueeze(0)
     return emb
 
-def beam_search(model, memory, BOS, EOS, max_len, beam_width=7, alpha=0.7, logging=False):
+def beam_search(model: nn.Module, 
+                memory: torch.Tensor, 
+                BOS: int, 
+                EOS: int, 
+                max_len: int, 
+                beam_width=7, 
+                alpha=0.7, 
+                logging=False,
+                emb_type: str='pubmed-bert',
+                ):
+    """Performs beam search.
+    
+    Args:
+        model: The Mask2Former head.
+        memory: The class embeddings of the queries of shape [B, Nq, d_l].
+    """
     device = memory.device
     target = torch.tensor([[[BOS]]])
     target_emb = get_ids_embedding(model, target.to(device))
@@ -149,7 +162,7 @@ def beam_search(model, memory, BOS, EOS, max_len, beam_width=7, alpha=0.7, loggi
             weights = torch.tensor(weights_tmp)
             sequence_tracker = sequence_tmp
     # end while search loop ...!
-    bert_tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+    bert_tokenizer = transformers.BertTokenizer.from_pretrained(BERT_MODEL_BY_EMBEDDING_TYPES[emb_type])
     res_sentence = ''
     for i, (sentence, score) in enumerate(response_tracker):
         sentence = bert_tokenizer.decode(sentence)
