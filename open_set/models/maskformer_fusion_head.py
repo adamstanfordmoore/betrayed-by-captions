@@ -40,24 +40,25 @@ class MaskFormerFusionHeadOpen(BasePanopticFusionHead):
             self.unknown_cat_names = []
         if self.use_class_emb:
             self._class_to_emb_file = kwargs['class_to_emb_file']
-            class_to_emb = mmcv.load(self._class_to_emb_file)
-            all_class_embs = torch.zeros((self.num_classes + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
-            novel_class_embs = torch.zeros((len(self.unknown_cat_names) + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
-            base_class_embs = torch.zeros((len(all_class_embs) - len(novel_class_embs) + 1, len(class_to_emb[0]['emb'])), dtype=torch.float)
-            i = j = k = 0
-            for idx, class_dict in enumerate(class_to_emb):
-                if self.known_file:
-                    if class_dict['name'] not in self.known_cat_names:
-                        continue
-                if self.unknown_file:
-                    if class_dict['name'] in self.unknown_cat_names:
-                        novel_class_embs[j, :] = torch.FloatTensor(class_dict['emb'])
-                        j += 1
-                    else:
-                        base_class_embs[k, :] = torch.FloatTensor(class_dict['emb'])
-                        k += 1
-                all_class_embs[i, :] = torch.FloatTensor(class_dict['emb'])
-                i += 1
+            class_to_emb = {class_dict['name']: class_dict['emb'] for class_dict in mmcv.load(self._class_to_emb_file)}
+            emb_dim = len(list(class_to_emb.values())[0])
+            
+            all_cat_names = self.known_cat_names.copy()
+            all_cat_names.extend(self.unknown_cat_names)
+            all_class_embs = torch.zeros((self.num_classes + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(all_cat_names):
+                all_class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+            
+            base_class_embs = torch.zeros((self.num_classes - len(self.unknown_cat_names) + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(self.known_cat_names):
+                if name in self.unknown_cat_names:
+                    continue
+                base_class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+            
+            novel_class_embs = torch.zeros((len(self.unknown_cat_names) + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(self.unknown_cat_names):
+                novel_class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+                
             # automatically to cuda
             self.register_buffer('all_class_embs', all_class_embs)
             self.register_buffer('novel_class_embs', novel_class_embs)

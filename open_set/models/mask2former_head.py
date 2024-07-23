@@ -199,25 +199,21 @@ class Mask2FormerHeadOpen(MaskFormerHead):
         if self.unknown_file is not None:
             file_client = mmcv.FileClient()
             self.unknown_cat_names = file_client.get_text(self.unknown_file).split('\n')
+        else:
+            self.unknown_cat_names = []
         if self.use_class_emb:
-            class_to_emb_file = kwargs['class_to_emb_file']
-            class_to_emb = mmcv.load(class_to_emb_file)
-            class_embedding_dim = len(class_to_emb[0]['emb'])
-            class_embs = torch.zeros((self.num_classes + 1, class_embedding_dim), dtype=torch.float)
-            i = 0
-            # Copy the class embeddings from BERT to the head.
-            for class_dict in class_to_emb:
-                if self.known_file:
-                    if class_dict['name'] not in self.known_cat_names:
-                        continue
-                if self.unknown_file:
-                    if class_dict['name'] in self.unknown_cat_names:
-                        continue
-                class_embs[i, :] = torch.FloatTensor(class_dict['emb'])
-                i += 1
+            class_to_emb = {class_dict['name']: class_dict['emb'] for class_dict in mmcv.load(kwargs['class_to_emb_file'])}
+            emb_dim = len(list(class_to_emb.values())[0])
+            
+            class_embs = torch.zeros((self.num_classes + 1, emb_dim), dtype=torch.float)
+            for idx, name in enumerate(self.known_cat_names):
+                if name in self.unknown_cat_names:
+                    continue
+                class_embs[idx, :] = torch.FloatTensor(class_to_emb[name])
+
             # automatically to cuda
             self.register_buffer('class_embs', class_embs)
-            self.v2l_transform = nn.Linear(self.feat_channels, class_embedding_dim)
+            self.v2l_transform = nn.Linear(self.feat_channels, emb_dim)
         self.bert_embeddings = self.clip = None
         if self._use_caption:
             self.caption_emb_type = kwargs.get('caption_emb_type', 'clip')
